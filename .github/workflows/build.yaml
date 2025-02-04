@@ -1,0 +1,100 @@
+name: Aos virtual machine build
+on:
+  workflow_dispatch:
+  push:
+    tags:
+    - '*'
+jobs:
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+      if: github.event_name != 'push'
+
+    - name: Set tag name
+      id: tag
+      run: |
+        if [[ "${{ github.event_name }}" != "push" ]]; then
+          tag=v$(date +%Y%m%d.%H%M%S)
+        else
+          tag=$(basename "${{ github.ref }}")
+        fi
+        echo "tag=$tag" >> $GITHUB_OUTPUT
+    - name: Create Release
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+      run: |
+        tag="${{ steps.tag.outputs.tag }}"
+        gh release create --draft "$tag" --title "$tag"
+
+  build:
+    needs: [release]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-22.04 ]
+        name: [ head, debug ]
+    runs-on: ${{ matrix.os }}
+    env:
+        LANG: 'en_US.UTF-8'
+        LANGUAGE: 'en_US:en'
+        LC_ALL: 'en_US.UTF-8'
+        BUILD_DIR: './workspace'
+    steps:
+    - name: Clone Aos VM
+      uses: actions/checkout@v4
+      with:
+        repository: VasylSamoilov/meta-aos-vm
+
+    - name: Set platform
+      id: platform
+      run: |
+        platform=${{ matrix.os }}
+        echo "platform=$platform" >> $GITHUB_OUTPUT
+
+    # Build
+    - name: apt-get update on Ubuntu
+      run: sudo apt-get update
+      if: startsWith(matrix.os, 'ubuntu')
+    - run: sudo apt-get install -y apt-utils gawk wget git-core diffstat unzip texinfo gcc-multilib build-essential chrpath socat cpio python2 python3 python3-pip python3-pexpect xz-utils debianutils iputils-ping python3-git python3-jinja2 libegl1-mesa libsdl1.2-dev xterm vim locales rsync devscripts debhelper dkms curl imx-code-signing-tool jq ninja-build zstd liblz4-tool dosfstools mtools qemu-utils ca-certificates
+      if: startsWith(matrix.os, 'ubuntu')
+    - run: sudo curl https://storage.googleapis.com/git-repo-downloads/repo > /usr/bin/repo && sudo chmod a+x /usr/bin/repo
+      if: startsWith(matrix.os, 'ubuntu')
+
+    # Build
+    - run: locale-gen en_US.UTF-8
+    - run: mkdir -p $BUILD_DIR
+    - run: pip3 install --user git+https://github.com/xen-troops/moulin
+    - run: export PATH="${PATH}:~/.local/bin"
+    - run: moulin aos-vm.yaml --NODE_TYPE=main
+    - run: ninja main.img
+    - run: moulin aos-vm.yaml --NODE_TYPE=secondary
+    - run: ninja secondary.img
+#    - name: Upload Release
+#      env:
+#        GH_TOKEN: ${{ github.token }}
+#        GH_REPO: ${{ github.repository }}
+#      run: gh release upload "${{ needs.release.outputs.tag }}" "${{ matrix.name }}-${{ steps.platform.outputs.platform }}.tar.gz"
+
+#  publish:
+#    name: Publish Release
+#    needs: [release, build]
+#    runs-on: ubuntu-latest
+#    steps:
+#    - name: Publish Release
+#      env:
+#        GH_TOKEN: ${{ github.token }}
+#        GH_REPO: ${{ github.repository }}
+#      run: gh release edit "${{ needs.release.outputs.tag }}" --draft=false
+#    - uses: eregon/keep-last-n-releases@v1
+#      env:
+#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      with:
+#        n: 3
+#        remove_tags_without_release: true
