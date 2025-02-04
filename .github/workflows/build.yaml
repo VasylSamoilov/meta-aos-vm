@@ -66,7 +66,7 @@ jobs:
       if: startsWith(matrix.os, 'ubuntu')
 
     # Build
-    - run: locale-gen en_US.UTF-8
+#    - run: locale-gen en_US.UTF-8
     - run: mkdir -p $BUILD_DIR
     - run: pip3 install --user git+https://github.com/xen-troops/moulin
     - run: export PATH="${PATH}:~/.local/bin"
