@@ -74,22 +74,23 @@ jobs:
     - run: ninja main.img
     - run: moulin aos-vm.yaml --NODE_TYPE=secondary
     - run: ninja secondary.img
-#    - name: Upload Release
-#      env:
-#        GH_TOKEN: ${{ github.token }}
-#        GH_REPO: ${{ github.repository }}
-#      run: gh release upload "${{ needs.release.outputs.tag }}" "${{ matrix.name }}-${{ steps.platform.outputs.platform }}.tar.gz"
+    - run: ./yocto/meta-aos-vm/scripts/aos_vm.sh archive -m -s 1 -o aos-vm-${{ needs.release.outputs.tag }}.tar.gz
+    - name: Upload Release
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+      run: gh release upload "${{ needs.release.outputs.tag }}" "aos-vm-${{ needs.release.outputs.tag }}.tar.gz"
 
-#  publish:
-#    name: Publish Release
-#    needs: [release, build]
-#    runs-on: ubuntu-latest
-#    steps:
-#    - name: Publish Release
-#      env:
-#        GH_TOKEN: ${{ github.token }}
-#        GH_REPO: ${{ github.repository }}
-#      run: gh release edit "${{ needs.release.outputs.tag }}" --draft=false
+  publish:
+    name: Publish Release
+    needs: [release, build]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Publish Release
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+      run: gh release edit "${{ needs.release.outputs.tag }}" --draft=false
 #    - uses: eregon/keep-last-n-releases@v1
 #      env:
 #        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
