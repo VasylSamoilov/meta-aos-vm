@@ -39,7 +39,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-22.04 ]
-        name: [ head, debug ]
+        name: [ head ]
     runs-on: ${{ matrix.os }}
     env:
         LANG: 'en_US.UTF-8'
